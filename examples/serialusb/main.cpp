@@ -2,7 +2,7 @@
  * @brief Example of Serial ardebug usage
  */
 #include <Arduino.h>
-
+#define ARDEBUG_ENABLED
 #include "ardebug.h"
 
 #ifndef LED_BUILTIN

@@ -2,6 +2,7 @@
  * @brief Example of remote/telnet ardebug library use.
  */
 #include <Arduino.h>
+#define ARDEBUG_ENABLED
 #include "ardebug.h"
 #include "secrets.h"
 

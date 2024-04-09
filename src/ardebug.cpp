@@ -1,4 +1,4 @@
-#ifndef DEBUG_DISABLED
+#ifdef ARDEBUG_ENABLED
 #include "ardebug.h"
 
 namespace ardebug {

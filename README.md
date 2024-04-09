@@ -8,6 +8,7 @@ by Joao Lopes and Karol Brejna, [SerialDebug](https://github.com/JoaoLopesF/Seri
 by Joao Lopes, and [DebugLog](https://github.com/hideakitai/DebugLog) by Hideaki Tai
 
 Allows:
+* When not explicitly enabled, avoids compiling unused code
 * Use of Serial (USB) when physically connected to a device
 * A TCP/IP Telnet server to connect to via your local WiFi network
 * (Future) file output when appropriate storage/peripherals are available when not connected
@@ -24,7 +25,11 @@ Allows:
 
 ## Usage
 
-* Include the library header file
+* Include:
+    ```cpp
+    #define ARDEBUG_ENABLED
+    #include "ardebug.h"
+    ```
 * Create an instance (singleton) of the DebugContext class
 (or it will be instantiated with the first macro call)
 * To use WiFi/Telnet you must:

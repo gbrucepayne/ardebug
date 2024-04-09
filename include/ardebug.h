@@ -1,7 +1,7 @@
 #ifndef ARDEBUG_H
 #define ARDEBUG_H
 
-#ifndef ARDEBUG_DISABLED
+#ifdef ARDEBUG_ENABLED
 
 #define _ARDEBUG_VERSION_ "4.0.0"
 
@@ -77,9 +77,9 @@ const uint8_t ERROR = 5;
 #define debugW(fmt, ...) ardebugWln(fmt, ##__VA_ARGS__)
 #define debugE(fmt, ...) ardebugEln(fmt, ##__VA_ARGS__)
 
-#define ARD_HANDLE() ardebug::DebugContext::get().handle()
-#define debugLogLevel() ardebug::DebugContext::get().logLevel()
-#define debugLogLevelSet(level) ardebug::DebugContext::get().logLevelSet(level)
+#define ardebugHandle() ardebug::DebugContext::get().handle()
+#define ardebugLogLevel() ardebug::DebugContext::get().logLevel()
+#define ardebugLogLevelSet(level) ardebug::DebugContext::get().logLevelSet(level)
 
 class DebugContext {
   private:
@@ -138,34 +138,31 @@ class DebugContext {
 
 };
 
+} // namespace ardebug
+
 #else  // DEBUG_DISABLED
 
-// Disable debug macros
-
-#define rdebugPln(...)
 #define ardebugVln(...)
 #define ardebugDln(...)
 #define ardebugIln(...)
 #define ardebugWln(...)
 #define ardebugEln(...)
 
-#define LOGV(...)
-#define LOGD(...)
-#define LOGI(...)
-#define LOGW(...)
-#define LOGE(...)
+#define AR_LOGV(...)
+#define AR_LOGD(...)
+#define AR_LOGI(...)
+#define AR_LOGW(...)
+#define AR_LOGE(...)
 
-#define debugP(...)
 #define debugV(...)
 #define debugD(...)
 #define debugI(...)
 #define debugW(...)
 #define debugE(...)
 
-#define debugHandle()
+#define ardebugHandle()
+#define ardebugLogLevel()
+#define ardebugLogLevelSet(level)
 
 #endif  // DEBUG_DISABLED
-
-} // namespace ardebug
-
 #endif  // ARDEBUG_H
