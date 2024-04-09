@@ -7,7 +7,6 @@
 #define _ARDEBUG_VERSION_ "4.0.0"
 
 #include <Arduino.h>
-// #include <Print.h>
 #include <stdint.h>
 #include "boards.h"
 
@@ -59,7 +58,7 @@ const uint8_t ERROR = 5;
 #define ardebugE(fmt, ...) \
     ardebug::DebugContext::get().debugf(ardebug::ERROR, __func__, fmt, ##__VA_ARGS__)
 
-#define ardprintf(fmt, ...) ardebug::DebugContext::get().dprintf(fmt, ...)
+#define ardprintf(fmt, ...) ardebug::DebugContext::get().dprintf(fmt, ##__VA_ARGS__)
 
 // With newline
 #define ardebugVln(fmt, ...) ardebugV(fmt "\n", ##__VA_ARGS__)
