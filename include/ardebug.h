@@ -1,6 +1,7 @@
 #ifndef ARDEBUG_H
 #define ARDEBUG_H
 
+// #define ARDEBUG_ENABLED
 #ifdef ARDEBUG_ENABLED
 
 #define _ARDEBUG_VERSION_ "4.0.0"
@@ -57,6 +58,8 @@ const uint8_t ERROR = 5;
     ardebug::DebugContext::get().debugf(ardebug::WARNING, __func__, fmt, ##__VA_ARGS__)
 #define ardebugE(fmt, ...) \
     ardebug::DebugContext::get().debugf(ardebug::ERROR, __func__, fmt, ##__VA_ARGS__)
+
+#define ardprintf(fmt, ...) ardebug::DebugContext::get().dprintf(fmt, ...)
 
 // With newline
 #define ardebugVln(fmt, ...) ardebugV(fmt "\n", ##__VA_ARGS__)
@@ -142,6 +145,14 @@ class DebugContext {
 
 #else  // DEBUG_DISABLED
 
+#define ardebugV(...)
+#define ardebugD(...)
+#define ardebugI(...)
+#define ardebugW(...)
+#define ardebugE(...)
+
+#define ardprintf(...)
+
 #define ardebugVln(...)
 #define ardebugDln(...)
 #define ardebugIln(...)
@@ -165,4 +176,7 @@ class DebugContext {
 #define ardebugLogLevelSet(level)
 
 #endif  // DEBUG_DISABLED
+
+
+
 #endif  // ARDEBUG_H
