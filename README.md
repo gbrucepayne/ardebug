@@ -28,6 +28,7 @@ Allows:
 * Include:
     ```cpp
     #define ARDEBUG_ENABLED
+    #define ARDEBUG_WIFI   // optional
     #include "ardebug.h"
     ```
 * Create an instance (singleton) of the DebugContext class

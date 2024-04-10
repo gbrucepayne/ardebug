@@ -2,6 +2,8 @@
 #define ARDEBUG_H
 
 // #define ARDEBUG_ENABLED   // uncomment for testing
+// #define ARDEBUG_WIFI   // uncomment for wifi testing
+
 #ifdef ARDEBUG_ENABLED
 
 #define _ARDEBUG_VERSION_ "4.0.0"
@@ -12,7 +14,7 @@
 
 namespace ardebug {
 
-#ifdef BOARD_WIFI
+#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
 // #define DEBUG_DISABLE_AUTO_FUNC  // uncomment to remove function names
 #define ARDEBUG_TELNET_PORT 23
 #define ARDEBUG_MAX_PWD_ATTEMPTS 3
@@ -94,7 +96,7 @@ class DebugContext {
     boolean show_func_ = true;
     boolean show_millis_ = false;
     boolean show_color_ = false;
-#ifdef BOARD_WIFI
+#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
     char hostname[32] = {0};
     char password_[21] = {0};
     boolean password_ok_ = false;

@@ -1,15 +1,16 @@
-#ifdef ARDEBUG_ENABLED
 #include "ardebug.h"
+
+#ifdef ARDEBUG_ENABLED
 
 namespace ardebug {
 
-#ifdef BOARD_WIFI
+#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
 static WiFiServer server(ARDEBUG_TELNET_PORT, 1);  // @suppress("Abstract class cannot be instantiated")
 static WiFiClient client;
 #endif
 
 DebugContext::~DebugContext() {
-#ifdef BOARD_WIFI
+#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
   if (client && client.connected()) {
     client.flush();
   }
@@ -79,7 +80,7 @@ size_t DebugContext::dprintf(const char* fmt, ...) {
   if (serial_enabled_ && serial_) {
     serial_->write((const char*)temp, len);
   }
-#ifdef BOARD_WIFI
+#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
   if (telnet_enabled_ && client) {
     if (show_color_ && is_debug) {
       colorize(temp, buffer_size);
@@ -145,7 +146,7 @@ bool DebugContext::begin(Stream* stream, const char* host_name, const char* file
     serial_enabled_ = true;
     serial_ = stream;
   }
-#ifdef BOARD_WIFI
+#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
   if (host_name && strlen(host_name) > 0) {
     telnet_enabled_ = true;
     strncpy(hostname, host_name, 32);
@@ -164,7 +165,7 @@ bool DebugContext::begin(Stream* stream, const char* host_name, const char* file
 }
 
 bool DebugContext::setPassword(const char* password) {
-#ifdef BOARD_WIFI    
+#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)    
   if (telnet_enabled_ && strlen(password) > 0) {
     strncpy(password_, password, 21);
     return true;
@@ -174,7 +175,7 @@ bool DebugContext::setPassword(const char* password) {
 }
 
 void DebugContext::stop() {
-#ifdef BOARD_WIFI
+#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
   if (telnet_enabled_) {
     if (client) client.stop();
     server.stop();
@@ -184,7 +185,7 @@ void DebugContext::stop() {
 }
 
 void DebugContext::handle() {
-#ifdef BOARD_WIFI
+#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
   if (telnet_enabled_) {
     if (!telnet_listening_) {
       if (WiFi.isConnected()) {
@@ -215,7 +216,7 @@ void DebugContext::handle() {
 }
 
 void DebugContext::disconnect() {
-#ifdef BOARD_WIFI
+#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
   if (telnet_enabled_ && client) {
     if (client.connected())
       client.print("Closing client connection.\n");
@@ -225,7 +226,7 @@ void DebugContext::disconnect() {
 }
 
 void DebugContext::onConnect() {
-#ifdef BOARD_WIFI
+#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
   if (strlen(password_) > 0) {
     password_ok_ = false;
     password_attempt_ = 1;
@@ -235,14 +236,14 @@ void DebugContext::onConnect() {
 }
 
 boolean DebugContext::isConnected() {
-#ifdef BOARD_WIFI
+#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
   return (telnet_enabled_ && client.connected());
 #endif // BOARD_WIFI
   return false;
 }
 
 void DebugContext::showHelp() {
-#ifdef BOARD_WIFI
+#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
   bool en = serial_enabled_;
   if (en) serial_enabled_ = false;
   if (strlen(password_) > 0 && !password_ok_) {
@@ -290,7 +291,7 @@ void DebugContext::showHelp() {
 }
 
 void DebugContext::processCommand() {
-#ifdef BOARD_WIFI  
+#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)  
   if (strlen(password_) > 0 && !password_ok_) {  // Process the password - 18/08/18 - adjust in 04/09/08 and 2018-10-19
     if (strcmp(telnet_cmd_, password_) == 0) {
       dprintf("* Password ok, allowing access now...\n");

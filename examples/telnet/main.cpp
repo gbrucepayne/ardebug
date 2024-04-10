@@ -3,6 +3,7 @@
  */
 #include <Arduino.h>
 #define ARDEBUG_ENABLED
+#define ARDEBUG_WIFI
 #include "ardebug.h"
 #include "secrets.h"
 
