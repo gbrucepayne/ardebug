@@ -172,7 +172,7 @@ class DebugContext {
 
 #define ardebugHandle()
 #define ardebugLogLevel()
-#define ardebugLogLevelSet(level)
+#define ardebugSetLogLevel(level)
 
 #endif  // DEBUG_DISABLED
 
