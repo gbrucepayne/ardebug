@@ -1,7 +1,7 @@
 #ifndef ARDEBUG_H
 #define ARDEBUG_H
 
-// #define ARDEBUG_ENABLED
+// #define ARDEBUG_ENABLED   // uncomment for testing
 #ifdef ARDEBUG_ENABLED
 
 #define _ARDEBUG_VERSION_ "4.0.0"
@@ -81,7 +81,7 @@ const uint8_t ERROR = 5;
 
 #define ardebugHandle() ardebug::DebugContext::get().handle()
 #define ardebugLogLevel() ardebug::DebugContext::get().logLevel()
-#define ardebugLogLevelSet(level) ardebug::DebugContext::get().logLevelSet(level)
+#define ardebugSetLogLevel(level) ardebug::DebugContext::get().setLogLevel(level)
 
 class DebugContext {
   private:
