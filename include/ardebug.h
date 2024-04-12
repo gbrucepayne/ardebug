@@ -1,24 +1,23 @@
 #ifndef ARDEBUG_H
 #define ARDEBUG_H
 
-// #define ARDEBUG_ENABLED   // uncomment for testing
-// #define ARDEBUG_WIFI   // uncomment for wifi testing
+#define ARDEBUG_VERSION "1.0.0"
 
-#ifdef ARDEBUG_ENABLED
+#define ARDEBUG_V 4
+#define ARDEBUG_D 3
+#define ARDEBUG_I 2
+#define ARDEBUG_W 1
+#define ARDEBUG_E 0
 
-#define _ARDEBUG_VERSION_ "4.0.0"
+#define ARDEBUG_TELNET_PORT 23
+
+#ifndef ARDEBUG_DISABLED
 
 #include <Arduino.h>
 #include <stdint.h>
 #include "boards.h"
 
-namespace ardebug {
-
-#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
-// #define DEBUG_DISABLE_AUTO_FUNC  // uncomment to remove function names
-#define ARDEBUG_TELNET_PORT 23
 #define ARDEBUG_MAX_PWD_ATTEMPTS 3
-#endif  // BOARD_WIFI
 
 // ANSI Colors
 #define ARD_COLOR_RESET "\x1B[0m"
@@ -32,71 +31,70 @@ namespace ardebug {
 #define ARD_COLOR(COLOR) "\x1B[0;" COLOR "m"
 #define ARD_BOLD(COLOR) "\x1B[1;" COLOR "m"
 
-#define ARD_COLOR_V ARD_COLOR(ARD_COLOR_MAGENTA)
-#define ARD_COLOR_D ARD_COLOR(ARD_COLOR_BLUE)
-#define ARD_COLOR_I ARD_COLOR(ARD_COLOR_GREEN)
-#define ARD_COLOR_W ARD_COLOR(ARD_COLOR_YELLOW)
-#define ARD_COLOR_E ARD_COLOR(ARD_COLOR_RED)
+#define ARD_COLOR_V ARD_BOLD(ARD_COLOR_MAGENTA)
+#define ARD_COLOR_D ARD_BOLD(ARD_COLOR_BLUE)
+#define ARD_COLOR_I ARD_BOLD(ARD_COLOR_GREEN)
+#define ARD_COLOR_W ARD_BOLD(ARD_COLOR_YELLOW)
+#define ARD_COLOR_E ARD_BOLD(ARD_COLOR_RED)
+#define ARD_COLORSIZE 10
 
-#define ARDEBUG_CMD_BUFFER (16)
+// Buffers
 
-// Log levels
-const uint8_t PROFILER = 0;  // Include time of code block execution
-const uint8_t VERBOSE = 1;
-const uint8_t DEBUG = 2;
-const uint8_t INFO = 3;
-const uint8_t WARNING = 4;
-const uint8_t ERROR = 5;
+// Character sizing for debug log prefixes ...total max 64-byte buffer
+#define ARDEBUG_LEVEL_TAG_SIZE 3  // [x]
+#define ARDEBUG_MILLIS_SIZE 12  // "[4294967295]"
+#define ARDEBUG_FILENAME_SIZE 20  // "[<filename>" ...seems reasonable
+#define ARDEBUG_LINENO_SIZE 6  // ":9999]" ...seems reasonable
+#define ARDEBUG_FUNCNAME_SIZE 20  // " <funcname>()" ...seems reasonable
+#define ARDEBUG_DELIM_SIZE 2   // ": "
+#define ARDEBUG_MIN_PREFIX_SIZE (ARDEBUG_LEVEL_TAG_SIZE + ARDEBUG_DELIM_SIZE)
+#ifdef BOARD_LOW_MEMORY
+#define ARDEBUG_MAX_PREFIX_SIZE ARDEBUG_MIN_PREFIX_SIZE
+#else
+#define ARDEBUG_MAX_PREFIX_SIZE (ARDEBUG_MIN_PREFIX_SIZE + \
+    ARDEBUG_MILLIS_SIZE + ARDEBUG_FILENAME_SIZE + ARDEBUG_LINENO_SIZE + \
+    ARDEBUG_FUNCNAME_SIZE)
+#endif
 
-// Auto function for debug macros?
-#define ardebugV(fmt, ...) \
-    ardebug::DebugContext::get().debugf(ardebug::VERBOSE, __func__, fmt, ##__VA_ARGS__)
-#define ardebugD(fmt, ...) \
-    ardebug::DebugContext::get().debugf(ardebug::DEBUG, __func__, fmt, ##__VA_ARGS__)
-#define ardebugI(fmt, ...) \
-    ardebug::DebugContext::get().debugf(ardebug::INFO, __func__, fmt, ##__VA_ARGS__)
-#define ardebugW(fmt, ...) \
-    ardebug::DebugContext::get().debugf(ardebug::WARNING, __func__, fmt, ##__VA_ARGS__)
-#define ardebugE(fmt, ...) \
-    ardebug::DebugContext::get().debugf(ardebug::ERROR, __func__, fmt, ##__VA_ARGS__)
+// Buffer for message output to include prefix
+#ifdef BOARD_LOW_MEMORY
+#define ARDEBUG_BUFFER_SIZE ARDEBUG_MIN_PREFIX_SIZE + 42 + 1  // 48 bytes
+#else
+#define ARDEBUG_BUFFER_SIZE ARDEBUG_MAX_PREFIX_SIZE + 128 + 1  // 192 bytes
+#endif
 
-#define ardprintf(fmt, ...) ardebug::DebugContext::get().dprintf(fmt, ##__VA_ARGS__)
+// Buffer for telnet command input
+#define ARDEBUG_CMD_BUFFER 8  // max size of telnet command 7 chars
 
-// With newline
-#define ardebugVln(fmt, ...) ardebugV(fmt "\n", ##__VA_ARGS__)
-#define ardebugDln(fmt, ...) ardebugD(fmt "\n", ##__VA_ARGS__)
-#define ardebugIln(fmt, ...) ardebugI(fmt "\n", ##__VA_ARGS__)
-#define ardebugWln(fmt, ...) ardebugW(fmt "\n", ##__VA_ARGS__)
-#define ardebugEln(fmt, ...) ardebugE(fmt "\n", ##__VA_ARGS__)
+namespace ardebug {
 
-#define AR_LOGV(fmt, ...) ardebugVln(fmt, ##__VA_ARGS__)
-#define AR_LOGD(fmt, ...) ardebugDln(fmt, ##__VA_ARGS__)
-#define AR_LOGI(fmt, ...) ardebugIln(fmt, ##__VA_ARGS__)
-#define AR_LOGW(fmt, ...) ardebugWln(fmt, ##__VA_ARGS__)
-#define AR_LOGE(fmt, ...) ardebugEln(fmt, ##__VA_ARGS__)
+struct DebugMessage {
+  uint8_t level;
+  uint32_t millis;
+  char filename[ARDEBUG_FILENAME_SIZE];
+  uint32_t lineno;
+  char func[ARDEBUG_FUNCNAME_SIZE];
+  char message[ARDEBUG_BUFFER_SIZE];
+};
 
-#define debugV(fmt, ...) ardebugVln(fmt, ##__VA_ARGS__)
-#define debugD(fmt, ...) ardebugDln(fmt, ##__VA_ARGS__)
-#define debugI(fmt, ...) ardebugIln(fmt, ##__VA_ARGS__)
-#define debugW(fmt, ...) ardebugWln(fmt, ##__VA_ARGS__)
-#define debugE(fmt, ...) ardebugEln(fmt, ##__VA_ARGS__)
-
-#define ardebugHandle() ardebug::DebugContext::get().handle()
-#define ardebugLogLevel() ardebug::DebugContext::get().logLevel()
-#define ardebugSetLogLevel(level) ardebug::DebugContext::get().setLogLevel(level)
-
+/**
+ * @brief A debug logging context that allows USB or Telnet monitoring
+*/
 class DebugContext {
   private:
-    uint8_t log_level_ = ardebug::INFO;
+    uint8_t log_level_ = ARDEBUG_I;
+    boolean low_memory_ = false;
     boolean serial_enabled_ = false;
     Stream* serial_ = nullptr;
     boolean telnet_enabled_ = false;
     boolean telnet_listening_ = false;
     boolean file_enabled_ = false;
+    boolean show_millis_ = true;
+    boolean show_line_ = true;
     boolean show_func_ = true;
-    boolean show_millis_ = false;
-    boolean show_color_ = false;
-#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
+    boolean show_core_ = true;
+    boolean show_color_ = true;
+#if defined(BOARD_WIFI) && !defined(ARDEBUG_WIFI_DISABLED)
     char hostname[32] = {0};
     char password_[21] = {0};
     boolean password_ok_ = false;
@@ -119,7 +117,9 @@ class DebugContext {
     void operator=(const DebugContext&) = delete;
     ~DebugContext();
 
-    bool begin(Stream* stream = nullptr, const char* host_name = nullptr, const char* file_name = nullptr);
+    bool begin(Stream* stream = nullptr,
+               const char* host_name = nullptr,
+               const char* file_name = nullptr);
     void stop();
 
     bool setPassword(const char* password);
@@ -128,23 +128,72 @@ class DebugContext {
     void disconnect();
 
     size_t dprintf(const char* fmt, ...);
-    size_t debugf(uint8_t level, const char* caller, const char* fmt, ...);
+    size_t debugf(uint8_t level,
+                  const char* caller,
+                  const char* filename,
+                  uint32_t lineno,
+                  const char* fmt, ...);
 
     uint8_t logLevel() { return log_level_; }
-    void setLogLevel(uint8_t level) { if (level <= ERROR) log_level_ = level; }
-    void enableSerial(boolean enable) { serial_enabled_ = enable; }
-    void showFunction(boolean show) { show_func_ = show; }
-    void showTime(boolean show) { show_millis_ = show; }
-    void showColors(boolean show) { show_color_ = show; }
+    void setLogLevel(uint8_t level) { if (level <= ARDEBUG_V) log_level_ = level; }
+    void enableSerial(boolean enable) { serial_enabled_ = enable; }  // redundant?
+    void showTime(boolean show) { if (!low_memory_) show_millis_ = show; }
+    void showLine(boolean show) { if (!low_memory_) show_line_ = show; }
+    void showFunc(boolean show) { if (!low_memory_) show_func_ = show; }
+    void showCore(boolean show) { if (!low_memory_) show_core_ = show; }
+    void showColors(boolean show) { if (!low_memory_) show_color_ = show; }
     uint32_t getFreeMemory();
-
-    boolean isActive(uint8_t debugLevel = DEBUG) { return false; }
 
 };
 
 } // namespace ardebug
 
-#else  // DEBUG_DISABLED
+// Macros
+#define ardebugV(fmt, ...) \
+    ardebug::DebugContext::get().debugf(ARDEBUG_V, __func__, __FILENAME__, __LINE__, fmt, ##__VA_ARGS__)
+#define ardebugD(fmt, ...) \
+    ardebug::DebugContext::get().debugf(ARDEBUG_D, __func__, __FILENAME__, __LINE__, fmt, ##__VA_ARGS__)
+#define ardebugI(fmt, ...) \
+    ardebug::DebugContext::get().debugf(ARDEBUG_I, __func__, __FILENAME__, __LINE__, fmt, ##__VA_ARGS__)
+#define ardebugW(fmt, ...) \
+    ardebug::DebugContext::get().debugf(ARDEBUG_W, __func__, __FILENAME__, __LINE__, fmt, ##__VA_ARGS__)
+#define ardebugE(fmt, ...) \
+    ardebug::DebugContext::get().debugf(ARDEBUG_E, __func__, __FILENAME__, __LINE__, fmt, ##__VA_ARGS__)
+
+#define ardprintf(fmt, ...) ardebug::DebugContext::get().dprintf(fmt, ##__VA_ARGS__)
+
+// With newline
+#define ardebugVln(fmt, ...) ardebugV(fmt "\n", ##__VA_ARGS__)
+#define ardebugDln(fmt, ...) ardebugD(fmt "\n", ##__VA_ARGS__)
+#define ardebugIln(fmt, ...) ardebugI(fmt "\n", ##__VA_ARGS__)
+#define ardebugWln(fmt, ...) ardebugW(fmt "\n", ##__VA_ARGS__)
+#define ardebugEln(fmt, ...) ardebugE(fmt "\n", ##__VA_ARGS__)
+
+// ESP-IDF like
+#define AR_LOGV(fmt, ...) ardebugVln(fmt, ##__VA_ARGS__)
+#define AR_LOGD(fmt, ...) ardebugDln(fmt, ##__VA_ARGS__)
+#define AR_LOGI(fmt, ...) ardebugIln(fmt, ##__VA_ARGS__)
+#define AR_LOGW(fmt, ...) ardebugWln(fmt, ##__VA_ARGS__)
+#define AR_LOGE(fmt, ...) ardebugEln(fmt, ##__VA_ARGS__)
+
+// RemoteDebug like
+#define debugV(fmt, ...) ardebugVln(fmt, ##__VA_ARGS__)
+#define debugD(fmt, ...) ardebugDln(fmt, ##__VA_ARGS__)
+#define debugI(fmt, ...) ardebugIln(fmt, ##__VA_ARGS__)
+#define debugW(fmt, ...) ardebugWln(fmt, ##__VA_ARGS__)
+#define debugE(fmt, ...) ardebugEln(fmt, ##__VA_ARGS__)
+
+#define ardebugBegin(serialptr, hostnameptr, filenameptr) \
+    ardebug::DebugContext::get().begin(serialptr, hostnameptr, filenameptr)
+#define ardebugHandle() ardebug::DebugContext::get().handle()
+#define ardebugGetLevel() ardebug::DebugContext::get().logLevel()
+#define ardebugSetLevel(lvl) ardebug::DebugContext::get().setLogLevel(lvl)
+#define ardebugTime(bool) ardebug::DebugContext::get().showTime(bool)
+#define ardebugLine(bool) ardebug::DebugContext::get().showLine(bool)
+#define ardebugFunc(bool) ardebug::DebugContext::get().showFunction(bool)
+#define ardebugCore(bool) ardebug::DebugContext::get().showCore(bool)
+
+#else  // ARDEBUG_DISABLED
 
 #define ardebugV(...)
 #define ardebugD(...)
@@ -172,12 +221,16 @@ class DebugContext {
 #define debugW(...)
 #define debugE(...)
 
-#define ardebugHandle()
-#define ardebugLogLevel()
-#define ardebugSetLogLevel(level)
+#define ardebugInstance(...)
+#define ardebugBegin(...)
+#define ardebugHandle(...)
+#define ardebugGetLevel(...)
+#define ardebugSetLevel(...)
+#define ardebugTime(...)
+#define ardebugLine(...)
+#define ardebugFunc(...)
+#define ardebugCore(...)
 
-#endif  // DEBUG_DISABLED
-
-
+#endif  // ARDEBUG_DISABLED
 
 #endif  // ARDEBUG_H

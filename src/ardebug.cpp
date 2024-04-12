@@ -1,16 +1,16 @@
 #include "ardebug.h"
 
-#ifdef ARDEBUG_ENABLED
+#ifndef ARDEBUG_DISABLED
 
 namespace ardebug {
 
-#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
+#if defined(BOARD_WIFI) // && !defined(ARDEBUG_WIFI_DISABLED)
 static WiFiServer server(ARDEBUG_TELNET_PORT, 1);  // @suppress("Abstract class cannot be instantiated")
 static WiFiClient client;
 #endif
 
 DebugContext::~DebugContext() {
-#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
+#if defined(BOARD_WIFI) // && !defined(ARDEBUG_WIFI_DISABLED)
   if (client && client.connected()) {
     client.flush();
   }
@@ -18,37 +18,44 @@ DebugContext::~DebugContext() {
   stop();
 }
 
-static bool isDebug(const char* candidate) {
-  if (strlen(candidate) > 0 &&
-      candidate[0] == '(' && candidate[2] == ')')
-    return true;
-  return false;
+// iterate looking for [x] pattern
+static int8_t isDebug(const char* candidate) {
+  if (strlen(candidate) > 0 && candidate[0] == '[') {
+    char prev = candidate[0];
+    for (size_t i = 1; i < strlen(candidate); i++) {
+      char c = candidate[i];
+      char next = i < strlen(candidate) - 1 ? candidate[i + 1] : ' ';
+      if (prev == '[' && next == ']') {
+        switch (c) {
+          case 'V': return ARDEBUG_V;
+          case 'D': return ARDEBUG_D;
+          case 'I': return ARDEBUG_I;
+          case 'W': return ARDEBUG_W;
+          case 'E': return ARDEBUG_E;
+        }
+      }
+      prev = c;
+    }
+  }
+  return -1;
 }
 
-static void colorize(char* str, const size_t buffer_size) {
-  if (strlen(str) <= buffer_size - 16) {
-    String temp = "";
-    temp.reserve(buffer_size);
-    char log_level = str[1];
-    switch (log_level) {
-      case 'V':
-        temp += String(ARD_COLOR_V);
-        break;
-      case 'D':
-        temp += String(ARD_COLOR_D);
-        break;
-      case 'I':
-        temp += String(ARD_COLOR_I);
-        break;
-      case 'W':
-        temp += String(ARD_COLOR_W);
-        break;
-      case 'E':
-        temp += String(ARD_COLOR_E);
-        break;
-    }
-    temp += String(str) + String(ARD_COLOR_RESET);
-    strncpy(str, temp.c_str(), buffer_size);
+static char* debugColor(uint8_t level) {
+  switch (level) {
+    case ARDEBUG_V: return (char*)ARD_COLOR_V;
+    case ARDEBUG_D: return (char*)ARD_COLOR_D;
+    case ARDEBUG_I: return (char*)ARD_COLOR_I;
+    case ARDEBUG_W: return (char*)ARD_COLOR_W;
+    case ARDEBUG_E: return (char*)ARD_COLOR_E;
+    default: return (char*)ARD_COLOR_RESET;
+  }
+}
+
+static void colorize(char* str, const size_t buffer_size, const char* color) {
+  if (strlen(str) <= buffer_size - (2 * ARD_COLORSIZE)) {
+    char tmp[buffer_size];
+    strncpy(tmp, str, buffer_size);
+    snprintf(str, buffer_size, "%s%s%s", color, tmp, ARD_COLOR_RESET);
   }
 }
 
@@ -76,66 +83,77 @@ size_t DebugContext::dprintf(const char* fmt, ...) {
       len = vsnprintf(temp, len + 1, fmt, arg);
   }
   va_end(arg);
-  boolean is_debug = isDebug(temp);
+  int8_t is_debug = isDebug(temp);
   if (serial_enabled_ && serial_) {
     serial_->write((const char*)temp, len);
   }
-#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
+  // if (file_enabled_) File.write((const char*)temp, len);
+#if defined(BOARD_WIFI) // && !defined(ARDEBUG_WIFI_DISABLED)
   if (telnet_enabled_ && client) {
-    if (show_color_ && is_debug) {
-      colorize(temp, buffer_size);
+    if (show_color_ && is_debug >= ARDEBUG_E) {
+      colorize(temp, buffer_size, debugColor(is_debug));
       len = strlen(temp);
     }
     client.write((const char*)temp, len);
   }
 #endif // BOARD_WIFI
-  // if (file_enabled_) File.write((const char*)temp, len);
   if (temp != buffer) free(temp);
   return len;
 }
 
-size_t DebugContext::debugf(uint8_t level, const char* caller, const char* fmt, ...) {
-    if (level < log_level_) return 0;
+size_t DebugContext::debugf(uint8_t level, const char* caller, const char* filename, uint32_t lineno, const char* fmt, ...) {
+    if (level > log_level_) return 0;
+    DebugMessage msg{level};
+    msg.millis = millis();
+    strncpy(msg.func, caller, ARDEBUG_FUNCNAME_SIZE);
+    strncpy(msg.filename, filename, ARDEBUG_FILENAME_SIZE);
+    msg.lineno = lineno;
     size_t len = 0;
-    const size_t max_prefix_len = 32;
+    const size_t max_prefix_len = ARDEBUG_MAX_PREFIX_SIZE + 1;
     char prefix[max_prefix_len] = {0};
     size_t offset = 0;
     char level_label;
     switch (level) {
-        case DEBUG:
+        case ARDEBUG_D:
             level_label = 'D';
             break;
-        case INFO:
+        case ARDEBUG_I:
             level_label = 'I';
             break;
-        case WARNING:
+        case ARDEBUG_W:
             level_label = 'W';
             break;
-        case ERROR:
+        case ARDEBUG_E:
             level_label = 'E';
             break;
         default:
             level_label = 'V';
     }
-    offset += snprintf(prefix, max_prefix_len, "(%c)", level_label);
     if (show_millis_) {
-        offset += snprintf(prefix + offset, max_prefix_len, "%s(t:%d)", prefix + offset, millis());
+      offset += snprintf(prefix + offset, max_prefix_len, "[%*d]", 6, millis());
     }
-    if (caller != nullptr) {
-        offset += snprintf(prefix + offset, max_prefix_len, "%s(%s)", prefix + offset, caller);
+    offset += snprintf(prefix + offset, max_prefix_len, "%s[%c]", prefix + offset, level_label);
+    if (show_line_) {
+      offset += snprintf(prefix + offset, max_prefix_len, "%s[%s:%d]", prefix + offset, filename, lineno);
     }
 #ifdef BOARD_MULTI_CORE
-    offset += snprintf(prefix + offset, max_prefix_len, "%s(C%d)", prefix + offset, xPortGetCoreID());
+    if (show_core_) {
+      offset += snprintf(prefix + offset, max_prefix_len, "%s[C%d]", prefix + offset, xPortGetCoreID());
+    }
 #endif
-    offset += snprintf(prefix + offset, max_prefix_len, "%s ", prefix + offset);
-    len = dprintf(prefix);
+    if (show_func_ && caller) {
+        offset += snprintf(prefix + offset, max_prefix_len, "%s %s()", prefix + offset, caller);
+    }
+    offset += snprintf(prefix + offset, max_prefix_len, "%s: ", prefix + offset);
+    char debug_msg[ARDEBUG_BUFFER_SIZE];
     char* tmp = {0};
     va_list args;
     va_start(args, fmt);
     vasprintf(&tmp, fmt, args);
-    len += dprintf("%s", tmp);
+    snprintf(debug_msg, ARDEBUG_BUFFER_SIZE, "%s%s", prefix, tmp);
     free(tmp);
     va_end(args);
+    len = dprintf(debug_msg);
     return len;
 }
 
@@ -146,7 +164,7 @@ bool DebugContext::begin(Stream* stream, const char* host_name, const char* file
     serial_enabled_ = true;
     serial_ = stream;
   }
-#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
+#if defined(BOARD_WIFI) // && !defined(ARDEBUG_WIFI_DISABLED)
   if (host_name && strlen(host_name) > 0) {
     telnet_enabled_ = true;
     strncpy(hostname, host_name, 32);
@@ -158,6 +176,14 @@ bool DebugContext::begin(Stream* stream, const char* host_name, const char* file
 #else // no wifi = no host
   if (host_name != nullptr) return false;
 #endif // BOARD_WIFI
+#ifdef BOARD_LOW_MEMORY
+    low_memory_ = true;
+    show_millis_ = false;
+    show_line_ = false;
+    show_func_ = false;
+    show_core_ = false;
+    show_color_ = false;
+#endif
   // if (file_name != nullptr) {
   //   file_enabled_ = true;
   // }
@@ -165,7 +191,7 @@ bool DebugContext::begin(Stream* stream, const char* host_name, const char* file
 }
 
 bool DebugContext::setPassword(const char* password) {
-#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)    
+#if defined(BOARD_WIFI) // && !defined(ARDEBUG_WIFI_DISABLED)    
   if (telnet_enabled_ && strlen(password) > 0) {
     strncpy(password_, password, 21);
     return true;
@@ -175,7 +201,7 @@ bool DebugContext::setPassword(const char* password) {
 }
 
 void DebugContext::stop() {
-#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
+#if defined(BOARD_WIFI) // && !defined(ARDEBUG_WIFI_DISABLED)
   if (telnet_enabled_) {
     if (client) client.stop();
     server.stop();
@@ -185,7 +211,7 @@ void DebugContext::stop() {
 }
 
 void DebugContext::handle() {
-#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
+#if defined(BOARD_WIFI) // && !defined(ARDEBUG_WIFI_DISABLED)
   if (telnet_enabled_) {
     if (!telnet_listening_) {
       if (WiFi.isConnected()) {
@@ -216,7 +242,7 @@ void DebugContext::handle() {
 }
 
 void DebugContext::disconnect() {
-#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
+#if defined(BOARD_WIFI) // && !defined(ARDEBUG_WIFI_DISABLED)
   if (telnet_enabled_ && client) {
     if (client.connected())
       client.print("Closing client connection.\n");
@@ -226,7 +252,7 @@ void DebugContext::disconnect() {
 }
 
 void DebugContext::onConnect() {
-#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
+#if defined(BOARD_WIFI) // && !defined(ARDEBUG_WIFI_DISABLED)
   if (strlen(password_) > 0) {
     password_ok_ = false;
     password_attempt_ = 1;
@@ -236,54 +262,52 @@ void DebugContext::onConnect() {
 }
 
 boolean DebugContext::isConnected() {
-#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
+#if defined(BOARD_WIFI) // && !defined(ARDEBUG_WIFI_DISABLED)
   return (telnet_enabled_ && client.connected());
 #endif // BOARD_WIFI
   return false;
 }
 
 void DebugContext::showHelp() {
-#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)
+#if defined(BOARD_WIFI) // && !defined(ARDEBUG_WIFI_DISABLED)
   bool en = serial_enabled_;
   if (en) serial_enabled_ = false;
   if (strlen(password_) > 0 && !password_ok_) {
     dprintf("Enter password > \r\n");
   } else {
     String help = "";
-    help.concat("*** Remote debug - over telnet - version ");
-    help.concat(_ARDEBUG_VERSION_);
-    help.concat("\r\n");
-    help.concat("* Host name: ");
-    help.concat(String(hostname));
-    help.concat(" IP:");
+    help.concat(ARD_COLOR_I);
+    help.concat("\r\n**************************************************");
+    help.concat("\r\n* Remote debug over telnet - version ");
+    help.concat(ARDEBUG_VERSION);
+    help.concat("\r\n* Host name: ");
+    help.concat(hostname);
+    help.concat("\r\n* IP:");
     help.concat(WiFi.localIP().toString());
-    help.concat(" Mac address:");
+    help.concat("\r\n* MAC: ");
     help.concat(WiFi.macAddress());
-    help.concat("\r\n");
-    help.concat("* Free Heap RAM: ");
+    help.concat("\r\n* Free Heap RAM: ");
     help.concat(getFreeMemory());
-    help.concat("\r\n");
 #if defined(ESP32) || defined(ESP8266)
-    help.concat("* ESP SDK version: ");
+    help.concat("\r\n* ESP SDK version: ");
     help.concat(ESP.getSdkVersion());
-    help.concat("\r\n");
 #endif // ESP specific
-    help.concat("******************************************************\r\n");
-    help.concat("* Commands:\r\n");
-    help.concat("    ? or help -> display these help of commands\r\n");
-    help.concat("    q -> quit (close this connection)\r\n");
-    help.concat("    m -> display memory available\r\n");
-    help.concat("    v -> set debug level to verbose\r\n");
-    help.concat("    d -> set debug level to debug\r\n");
-    help.concat("    i -> set debug level to info\r\n");
-    help.concat("    w -> set debug level to warning\r\n");
-    help.concat("    e -> set debug level to errors\r\n");
-    help.concat("    l -> show debug level\r\n");
-    help.concat("    t -> show time (millis)\r\n");
-    help.concat("    c -> show colors\r\n");
-    help.concat("\r\n");
-    help.concat("* Please type the command and press enter to execute.(? or h for this help)\r\n");
-    help.concat("***\r\n");
+    help.concat("\r\n---------------------------------------------------");
+    help.concat("\r\n* Commands:");
+    help.concat("\r\n*\t m -> display memory available");
+    help.concat("\r\n*\t v -> set debug level to verbose");
+    help.concat("\r\n*\t d -> set debug level to debug");
+    help.concat("\r\n*\t i -> set debug level to info");
+    help.concat("\r\n*\t w -> set debug level to warning");
+    help.concat("\r\n*\t e -> set debug level to errors");
+    help.concat("\r\n*\t l -> show debug level");
+    help.concat("\r\n*\t t -> show time (millis)");
+    help.concat("\r\n*\t c -> show colors");
+    help.concat("\r\n*\t q -> quit (close this connection)");
+    help.concat("\r\n*\t ? or help -> display these help of commands");
+    help.concat("\r\n*");
+    help.concat("\r\n**************************************************\r\n");
+    help.concat(ARD_COLOR_RESET);
     dprintf(help.c_str());
     if (en) serial_enabled_ = true;
   }
@@ -291,7 +315,7 @@ void DebugContext::showHelp() {
 }
 
 void DebugContext::processCommand() {
-#if defined(BOARD_WIFI) && defined(ARDEBUG_WIFI)  
+#if defined(BOARD_WIFI) // && !defined(ARDEBUG_WIFI_DISABLED)  
   if (strlen(password_) > 0 && !password_ok_) {  // Process the password - 18/08/18 - adjust in 04/09/08 and 2018-10-19
     if (strcmp(telnet_cmd_, password_) == 0) {
       dprintf("* Password ok, allowing access now...\n");
@@ -321,19 +345,19 @@ void DebugContext::processCommand() {
       dprintf("CPU ESP8266 changed to: 160 MHz");
 #endif
     } else if (strcmp(telnet_cmd_, "v") == 0) {
-      log_level_ = VERBOSE;
+      log_level_ = ARDEBUG_V;
       dprintf("Log level set to VERBOSE\n");
     } else if (strcmp(telnet_cmd_, "d") == 0) {
-      log_level_ = DEBUG;
+      log_level_ = ARDEBUG_D;
       dprintf("Log level set to DEBUG\n");
     } else if (strcmp(telnet_cmd_, "i") == 0) {
-      log_level_ = INFO;
+      log_level_ = ARDEBUG_I;
       dprintf("Log level set to INFO\n");
     } else if (strcmp(telnet_cmd_, "w") == 0) {
-      log_level_ = WARNING;
+      log_level_ = ARDEBUG_W;
       dprintf("Log level set to WARNING\n");
     } else if (strcmp(telnet_cmd_, "e") == 0) {
-      log_level_ = ERROR;
+      log_level_ = ARDEBUG_E;
       dprintf("Log level set to ERROR\n");
     } else if (strcmp(telnet_cmd_, "l") == 0) {
       dprintf("Log level: %d\n", log_level_);

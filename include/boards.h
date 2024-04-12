@@ -7,20 +7,19 @@
 
 #if defined(ESP32) || defined(ESP8266)
 #define BOARD_WIFI
-#define ARDEBUG_BUFFER_SIZE (128)
-#include <Print.h>
+#include <DNSServer.h>
+// #include <Print.h>
 #if defined(ESP32)
-#include <WiFi.h>
 #define BOARD_MULTI_CORE
+#include <WiFi.h>
+#include <ESPmDNS.h>
 #else
 #include <ESP8266WIFI.H>
+#include <ESP8266mDNS.h>
 extern "C" { bool system_update_cpu_freq(uint8_t freq); }
 #endif
 #else
-#define BOARD_AVR
 #define BOARD_LOW_MEMORY
-#define ARDEBUG_BUFFER_SIZE (64)
-#include "avrprint.h"
 #endif
 
 #endif

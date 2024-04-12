@@ -3,46 +3,66 @@
 A simplified library for real-time debugging over Serial/USB, WiFi/Telnet.
 Future plans to enable file storage.
 
+Produces output like:
+```
+[   123][I][main.cpp:56][C1] loop(): This is a message of debug level INFO (2)
+```
+
 Combines concepts of [RemoteDebug](https://github.com/JoaoLopesF/RemoteDebug)
 by Joao Lopes and Karol Brejna, [SerialDebug](https://github.com/JoaoLopesF/SerialDebug/tree/master)
 by Joao Lopes, and [DebugLog](https://github.com/hideakitai/DebugLog) by Hideaki Tai
 
 Allows:
-* When not explicitly enabled, avoids compiling unused code
+* Macro-driven functions
+* When not using, `#define ARDEBUG_DISABLED` avoids compiling unused code
 * Use of Serial (USB) when physically connected to a device
 * A TCP/IP Telnet server to connect to via your local WiFi network
-* (Future) file output when appropriate storage/peripherals are available when not connected
-* `printf`-style output for efficient single-line commands
+* `printf`-style single-line commands
+* `esp_log`-style output
+* ***TODO*** file output when appropriate storage/peripherals are available when not connected
 
-## Background
+## Background / Features
+
+While some great libraries exist for doing most of what I wanted, none of them
+quite fit my needs. So I borrowed concepts from a few different places.
 
 * Removes the websocket feature/dependency from **`RemoteDebug`**
 * Removes custom commands and advanced profiler interaction to simplify code base
 * Simplifies field entry and allows arbitrary delimiters compared to **`DebugLog`**
-* Intended to support low-memory boards such as AVR/ATMega
-* Intended to support other WiFi or non-WiFi capable boards like Pi Pico, STM32
-* Intended compatibilty with ESP logging facility
+* ***TODO*** File output
+* ***TODO*** Intended to support low-memory boards such as AVR/ATMega
+* ***TODO*** Intended to support other WiFi or non-WiFi capable boards like Pi Pico, STM32
+* ***TODO*** compatibilty with ESP `TAG` call structure
 
 ## Usage
 
 * Include:
     ```cpp
-    #define ARDEBUG_ENABLED
     #define ARDEBUG_WIFI   // optional
     #include "ardebug.h"
     ```
-* Create an instance (singleton) of the DebugContext class
-(or it will be instantiated with the first macro call)
 * To use WiFi/Telnet you must:
     * Setup a WiFi Station client similar to the example
     * Call the handle function in your loop
+* Call `ardebugBegin()` with a combination of `&Serial` or `"<hostname>"` in
+your `setup()`
+* Generate logs in your code using `AR_LOG<x>(<fmt>, ...)`
+where `<x>` is the level tag:
+    * **E**rror (0)
+    * **W**arning (1)
+    * **I**nfo (2)
+    * **D**ebug (3)
+    * **V**erbose (4)
+* To connect remotely to a WiFi-enabled microcontroller, use a telnet program
+such as terminal `telnet` for Linux, or PuTTY for Windows.
 
 ## Limitations
 
 The following limitations are inherited from the original library:
 * doesn't support SSL (technical limitation of the underlying library)
 
-The library has no tests, nor CI/CD.
+> [!IMPORTANT]
+> The library has no tests, nor CI/CD.
 
 ## Acknowledgements
 
