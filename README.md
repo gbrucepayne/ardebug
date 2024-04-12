@@ -36,6 +36,13 @@ quite fit my needs. So I borrowed concepts from a few different places.
 
 ## Usage
 
+Defines the following log levels:
+* `ARDEBUG_V` 4
+* `ARDEBUG_D` 3
+* `ARDEBUG_I` 2
+* `ARDEBUG_W` 1
+* `ARDEBUG_E` 0
+
 * Include:
     ```cpp
     #define ARDEBUG_WIFI   // optional
@@ -46,6 +53,9 @@ quite fit my needs. So I borrowed concepts from a few different places.
     * Call the handle function in your loop
 * Call `ardebugBegin()` with a combination of `&Serial` or `"<hostname>"` in
 your `setup()`
+* Use `ardebugGetLevel()` or `ardebugSetLevel(<n>)`
+    > [!NOTE]
+    > `ardebugGetLevel()` returns -1 if `ARDEBUG_DISABLED` is defined
 * Generate logs in your code using `AR_LOG<x>(<fmt>, ...)`
 where `<x>` is the level tag:
     * **E**rror (0)

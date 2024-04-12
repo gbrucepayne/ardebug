@@ -221,10 +221,9 @@ class DebugContext {
 #define debugW(...)
 #define debugE(...)
 
-#define ardebugInstance(...)
 #define ardebugBegin(...)
 #define ardebugHandle(...)
-#define ardebugGetLevel(...)
+#define ardebugGetLevel(...) -1
 #define ardebugSetLevel(...)
 #define ardebugTime(...)
 #define ardebugLine(...)
