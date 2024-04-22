@@ -151,6 +151,14 @@ size_t DebugContext::debugf(uint8_t level, const char* caller, const char* filen
     va_start(args, fmt);
     vasprintf(&tmp, fmt, args);
     snprintf(debug_msg, ARDEBUG_BUFFER_SIZE, "%s%s", prefix, tmp);
+    if ((strlen(prefix) + strlen(tmp)) >= ARDEBUG_BUFFER_SIZE - 1) {
+      offset = ARDEBUG_BUFFER_SIZE - 4;
+      if (tmp[strlen(tmp) - 1] == '\n') {
+        debug_msg[strlen(debug_msg) - 1] = '\n';
+        offset--;
+      }
+      for (uint8_t i = offset; i < offset + 3; i++) debug_msg[i] = '.';
+    }
     free(tmp);
     va_end(args);
     len = dprintf(debug_msg);

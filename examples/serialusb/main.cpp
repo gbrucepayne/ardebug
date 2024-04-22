@@ -36,6 +36,7 @@ void setup() {
 #endif
   AR_LOGI("This is a %s log", "ardebug");
   AR_LOGI("%s ardebug log with a esp_log style tag", AR_TAG);
+  AR_LOGI("This is a super long message to test what happens if your message is way too long and might create memory issues or some other highly undesirable behaviour like who knows what!!!");
 }
 
 void loop() {

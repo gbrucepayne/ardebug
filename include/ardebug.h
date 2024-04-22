@@ -57,10 +57,15 @@
 #endif
 
 // Buffer for message output to include prefix
+#ifndef ARDEBUG_BUFFER_SIZE
 #ifdef BOARD_LOW_MEMORY
 #define ARDEBUG_BUFFER_SIZE ARDEBUG_MIN_PREFIX_SIZE + 42 + 1  // 48 bytes
 #else
 #define ARDEBUG_BUFFER_SIZE ARDEBUG_MAX_PREFIX_SIZE + 128 + 1  // 192 bytes
+#endif
+#endif // ARDEBUG_BUFFER_SIZE
+#if ARDEBUG_BUFFER_SIZE < 32
+#error "ARDEBUG_BUFFER_SIZE must be at least 32 bytes"
 #endif
 
 // Buffer for telnet command input
