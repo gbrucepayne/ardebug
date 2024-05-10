@@ -68,8 +68,9 @@ such as terminal `telnet` for Linux, or PuTTY for Windows.
 
 ## Limitations
 
-The following limitations are inherited from the original library:
-* doesn't support SSL (technical limitation of the underlying library)
+* Some `%` character sequences in variadic char* arguments may produce strange
+formatting (e.g. `%U`, `%G`)
+* Doesn't support SSL (technical limitation of the underlying library)
 
 > [!IMPORTANT]
 > The library has no tests, nor CI/CD.
