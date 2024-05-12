@@ -12,6 +12,7 @@
 #define ARDEBUG_TELNET_PORT 23
 
 #ifndef ARDEBUG_DISABLED
+// #if defined(ARDEBUG_ENABLE)
 
 #include <Arduino.h>
 #include <stdint.h>

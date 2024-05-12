@@ -1,6 +1,7 @@
 #include "ardebug.h"
 
 #ifndef ARDEBUG_DISABLED
+// #if defined(ARDEBUG_ENABLE)
 
 namespace ardebug {
 
@@ -61,108 +62,138 @@ static void colorize(char* str, const size_t buffer_size, const char* color) {
 
 size_t DebugContext::dprintf(const char* fmt, ...) {
   if (!serial_enabled_ && !isConnected() && !file_enabled_) return 0;
-  const size_t buffer_size = ARDEBUG_BUFFER_SIZE;
-  char buffer[buffer_size] = {0};
+  char buffer[ARDEBUG_BUFFER_SIZE];
   char* temp = buffer;
-  va_list arg;
+  va_list args;
   va_list copy;
-  va_start(arg, fmt);
-  va_copy(copy, arg);
-  int len = vsnprintf(temp, buffer_size, fmt, copy);
+  va_start(args, fmt);
+  va_copy(copy, args);
+  int len = vsnprintf(temp, ARDEBUG_BUFFER_SIZE, fmt, copy);
   va_end(copy);
   if (len < 0) {
-      va_end(arg);
+      va_end(args);
       return 0;
   }
-  if (len >= buffer_size) {
-      temp = (char*)malloc(len + 1);
+#if defined(ARDEBUG_FLEXBUFFER)
+  if (len >= ARDEBUG_BUFFER_SIZE) {
+      temp = new char[len + 1];
       if (temp == NULL) {
-          va_end(arg);
+          va_end(args);
           return 0;
       }
-      len = vsnprintf(temp, len + 1, fmt, arg);
+      len = vsnprintf(temp, len + 1, fmt, args);
   }
-  va_end(arg);
-  int8_t is_debug = isDebug(temp);
+#else
+  if (len >= ARDEBUG_BUFFER_SIZE - 1) {
+    int offset = strlen(temp) - 1;
+    if (fmt[strlen(fmt) - 1] == '\n' || temp[strlen(temp) - 1] == '\n') {
+      temp[strlen(temp) - 1] = '\n';
+      offset--;
+    }
+    for (int i = offset; i > offset - 3; i--) temp[i] = '.';
+    len = strlen(temp);
+  }
+#endif
   if (serial_enabled_ && serial_) {
     serial_->write((const char*)temp, len);
   }
   // if (file_enabled_) File.write((const char*)temp, len);
 #if defined(BOARD_WIFI) // && !defined(ARDEBUG_WIFI_DISABLED)
+  int8_t is_debug = isDebug(temp);
   if (telnet_enabled_ && client) {
     if (show_color_ && is_debug >= ARDEBUG_E) {
-      colorize(temp, buffer_size, debugColor(is_debug));
+      colorize(temp, ARDEBUG_BUFFER_SIZE, debugColor(is_debug));
       len = strlen(temp);
     }
     client.write((const char*)temp, len);
   }
 #endif // BOARD_WIFI
-  if (temp != buffer) free(temp);
-  return len;
+  va_end(args);
+#if defined(ARDEBUG_FLEXBUFFER)
+  if (temp != buffer) delete[] temp;
+#endif
+  return (size_t)len;
 }
 
 size_t DebugContext::debugf(uint8_t level, const char* caller, const char* filename, uint32_t lineno, const char* fmt, ...) {
-    if (level > log_level_) return 0;
-    DebugMessage msg{level};
-    msg.millis = millis();
-    strncpy(msg.func, caller, ARDEBUG_FUNCNAME_SIZE);
-    strncpy(msg.filename, filename, ARDEBUG_FILENAME_SIZE);
-    msg.lineno = lineno;
-    size_t len = 0;
-    const size_t max_prefix_len = ARDEBUG_MAX_PREFIX_SIZE + 1;
-    char prefix[max_prefix_len] = {0};
-    size_t offset = 0;
-    char level_label;
-    switch (level) {
-        case ARDEBUG_D:
-            level_label = 'D';
-            break;
-        case ARDEBUG_I:
-            level_label = 'I';
-            break;
-        case ARDEBUG_W:
-            level_label = 'W';
-            break;
-        case ARDEBUG_E:
-            level_label = 'E';
-            break;
-        default:
-            level_label = 'V';
-    }
-    if (show_millis_) {
-      offset += snprintf(prefix + offset, max_prefix_len, "[%*d]", 6, millis());
-    }
-    offset += snprintf(prefix + offset, max_prefix_len, "%s[%c]", prefix + offset, level_label);
-    if (show_line_) {
-      offset += snprintf(prefix + offset, max_prefix_len, "%s[%s:%d]", prefix + offset, filename, lineno);
-    }
+  if (level > log_level_) return 0;
+  bool lf_required = fmt[strlen(fmt) - 1] == '\n';
+  DebugMessage msg{level};
+  msg.millis = millis();
+  strncpy(msg.func, caller, ARDEBUG_FUNCNAME_SIZE);
+  strncpy(msg.filename, filename, ARDEBUG_FILENAME_SIZE);
+  msg.lineno = lineno;
+  const size_t max_prefix_len = ARDEBUG_MAX_PREFIX_SIZE + 1;
+  char prefix[max_prefix_len] = {0};
+  size_t offset = 0;
+  char level_label;
+  switch (level) {
+      case ARDEBUG_D:
+          level_label = 'D';
+          break;
+      case ARDEBUG_I:
+          level_label = 'I';
+          break;
+      case ARDEBUG_W:
+          level_label = 'W';
+          break;
+      case ARDEBUG_E:
+          level_label = 'E';
+          break;
+      default:
+          level_label = 'V';
+  }
+  if (show_millis_) {
+    offset += snprintf(prefix + offset, max_prefix_len, "[%*d]", 6, millis());
+  }
+  offset += snprintf(prefix + offset, max_prefix_len, "%s[%c]", prefix + offset, level_label);
+  if (show_line_) {
+    offset += snprintf(prefix + offset, max_prefix_len, "%s[%s:%d]", prefix + offset, filename, lineno);
+  }
 #ifdef BOARD_MULTI_CORE
-    if (show_core_) {
-      offset += snprintf(prefix + offset, max_prefix_len, "%s[C%d]", prefix + offset, xPortGetCoreID());
-    }
+  if (show_core_) {
+    offset += snprintf(prefix + offset, max_prefix_len, "%s[C%d]", prefix + offset, xPortGetCoreID());
+  }
 #endif
-    if (show_func_ && caller) {
-        offset += snprintf(prefix + offset, max_prefix_len, "%s %s()", prefix + offset, caller);
-    }
-    offset += snprintf(prefix + offset, max_prefix_len, "%s: ", prefix + offset);
-    char debug_msg[ARDEBUG_BUFFER_SIZE];
-    char* tmp = {0};
-    va_list args;
-    va_start(args, fmt);
-    vasprintf(&tmp, fmt, args);
-    snprintf(debug_msg, ARDEBUG_BUFFER_SIZE, "%s%s", prefix, tmp);
-    if ((strlen(prefix) + strlen(tmp)) >= ARDEBUG_BUFFER_SIZE - 1) {
-      offset = ARDEBUG_BUFFER_SIZE - 4;
-      if (tmp[strlen(tmp) - 1] == '\n') {
-        debug_msg[strlen(debug_msg) - 1] = '\n';
-        offset--;
+  if (show_func_ && caller) {
+      offset += snprintf(prefix + offset, max_prefix_len, "%s %s()", prefix + offset, caller);
+  }
+  offset += snprintf(prefix + offset, max_prefix_len, "%s: ", prefix + offset);
+  char buffer[ARDEBUG_BUFFER_SIZE];
+  // memset(buffer, 0, ARDEBUG_BUFFER_SIZE);
+  char* temp = buffer;
+  va_list args;
+  va_list copy;
+  va_start(args, fmt);
+  va_copy(copy, args);
+  int len = vsnprintf(temp, ARDEBUG_BUFFER_SIZE, fmt, copy);
+  va_end(copy);
+  if (len < 0) {
+      va_end(args);
+      return 0;
+  }
+#if defined(ARDEBUG_FLEXBUFFER)
+  if (len >= ARDEBUG_BUFFER_SIZE) {
+      temp = new char[len + 1];
+      if (temp == NULL) {
+          va_end(args);
+          return 0;
       }
-      for (uint8_t i = offset; i < offset + 3; i++) debug_msg[i] = '.';
-    }
-    free(tmp);
-    va_end(args);
-    len = dprintf(debug_msg);
-    return len;
+      len = vsnprintf(temp, len + 1, fmt, args);
+  }
+  len = (int)dprintf("%s%s", prefix, temp);
+  if (temp != buffer) delete[] temp;
+#else
+  if (lf_required) {
+    if (buffer[strlen(buffer) - 1] == '\n')
+      buffer[strlen(buffer) - 1] = 0;
+    len = (int)dprintf("%s%s\n", prefix, buffer);
+  } else {
+    len = (int)dprintf("%s%s", prefix, buffer);
+  }
+#endif  
+  va_end(args);
+  return (size_t)len;
 }
 
 bool DebugContext::begin(Stream* stream, const char* host_name, const char* file_name) {

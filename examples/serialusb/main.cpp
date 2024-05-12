@@ -13,6 +13,7 @@
 #ifndef LED_BUILTIN
 #define LED_BUILTIN (2)
 #endif
+#define INTERVAL_S 5
 
 uint32_t last_tick = 0;
 uint32_t runtime_s = 0;
@@ -36,20 +37,23 @@ void setup() {
 #endif
   AR_LOGI("This is a %s log", "ardebug");
   AR_LOGI("%s ardebug log with a esp_log style tag", AR_TAG);
-  AR_LOGI("This is a super long message to test what happens if your message is way too long and might create memory issues or some other highly undesirable behaviour like who knows what!!!");
+  AR_LOGI("This is a super long message to test what happens if your message"
+      " is way too long and might create memory issues"
+      " or some other highly undesirable behaviour like who knows what!!!");
+  AR_LOGI("This shows how to escape to get %%GPS instead of %GPS");
 }
 
 void loop() {
 #if defined(ESP32) || defined(ESP8266)
     if (last_tick > 999999) ESP_LOGI(TAG, "big time!");
 #endif
-  if ((millis() - last_tick) >= 1000) {   // every second
+  if ((millis() - last_tick) >= 1000) {   // every n seconds
     last_tick = millis();
     runtime_s++;
     // Blink the led
     digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
     // Print test output every 5 seconds
-    if (runtime_s % 5 == 0) {
+    if (runtime_s % INTERVAL_S == 0) {
       AR_LOGV("This is a message of debug level VERBOSE (%d)", ARDEBUG_V);
       AR_LOGD("This is a message of debug level DEBUG (%d)", ARDEBUG_D);
       AR_LOGI("This is a message of debug level INFO (%d)", ARDEBUG_I);
